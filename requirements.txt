@@ -1,0 +1,7 @@
+azure-ai-agents==1.0.1
+azure-ai-projects==1.0.0b12
+azure-identity==1.23.0
+semantic-kernel==1.19.0
+python-dotenv
+asyncio
+typing
