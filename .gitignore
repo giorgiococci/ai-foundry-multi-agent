@@ -3,3 +3,5 @@
 /examples
 /notebooks
 /ROUTING_AGENT_GUIDE.md
+
+__pycache__
