@@ -35,10 +35,11 @@ async def run_demo():
     """Run the multi-agent orchestrator demo with predefined test scenarios."""
     # Example interactions showcasing different routing scenarios
     test_messages = [
-        "What is the current weather in Seattle?",
-        "Calculate the compound interest on $10,000 invested at 5% annual rate for 10 years",
-        "Find the latest news about artificial intelligence developments",
-        "Create a Python function to calculate fibonacci numbers and show the first 10 numbers",
+        # "What is the current weather in Seattle?",
+        # "Calculate the compound interest on $10,000 invested at 5% annual rate for 10 years and create a chart showing the growth over time",
+        # "Find the latest news about artificial intelligence developments",
+        # "Create a Python function to calculate fibonacci numbers and show the first 10 numbers",
+        "Generate a bar chart showing monthly sales data: Jan=1200, Feb=1500, Mar=1800, Apr=1600, May=2000. Include proper labels and title.",
         "Search for information about quantum computing trends and create a visualization of market growth"
     ]
 
