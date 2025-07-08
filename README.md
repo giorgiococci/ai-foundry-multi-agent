@@ -8,7 +8,8 @@ This project implements a multi-agent orchestration pattern with:
 
 1. **Code Interpreter Agent** - Specialized for data analysis, mathematical calculations, and Python code execution
 2. **Bing Search Agent** - Specialized for web search, current information retrieval, and fact-finding
-3. **Orchestrator** - Routes requests to appropriate agents and manages collaborative workflows
+3. **Detailed Answer Agent** - Specialized for comprehensive, well-structured explanations and educational content
+4. **Orchestrator** - Routes requests to appropriate agents and manages collaborative workflows
 
 ## 🚀 Features
 
@@ -144,6 +145,7 @@ asyncio.run(example())
 ## 🧠 Agent Capabilities
 
 ### Code Interpreter Agent
+
 - Mathematical calculations and statistical analysis
 - Python code generation and execution
 - Data visualization (charts, graphs, plots)
@@ -151,11 +153,20 @@ asyncio.run(example())
 - Algorithm implementation and optimization
 
 ### Bing Search Agent
+
 - Real-time web search and information retrieval
 - Current events and news lookup
 - Fact verification and research
 - Weather and location-based queries
 - Recent developments and updates
+
+### Detailed Answer Agent
+
+- Comprehensive explanations with excellent formatting
+- Educational content and tutorials
+- Step-by-step guides and instructions
+- Detailed concept explanations
+- Well-structured responses with examples and best practices
 
 ## 🔄 Orchestration Logic
 

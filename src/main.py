@@ -12,6 +12,7 @@ Prerequisites:
 
 import asyncio
 import logging
+import time
 
 from orchestrator import MultiAgentOrchestrator
 
@@ -33,38 +34,58 @@ logger = logging.getLogger('multi_agent_orchestrator.main')
 
 async def run_demo():
     """Run the multi-agent orchestrator demo with predefined test scenarios."""
-    # Example interactions showcasing different routing scenarios
+    # Example interactions showcasing different routing scenarios and conversation flow
     test_messages = [
-        # "What is the current weather in Seattle?",
-        # "Calculate the compound interest on $10,000 invested at 5% annual rate for 10 years and create a chart showing the growth over time",
-        # "Find the latest news about artificial intelligence developments",
-        # "Create a Python function to calculate fibonacci numbers and show the first 10 numbers",
-        "Generate a bar chart showing monthly sales data: Jan=1200, Feb=1500, Mar=1800, Apr=1600, May=2000. Include proper labels and title.",
-        "Search for information about quantum computing trends and create a visualization of market growth"
+        "What is the current weather in Seattle?",
+        "Based on that weather, what activities would you recommend for today?",
+        "What is GraphRAG and how does it work?",
+        "Calculate the compound interest on $10,000 invested at 5% annual rate for 10 years",
+        "Now create a chart showing the growth over time for that calculation",
+        "Find the latest news about artificial intelligence developments",
+        "Can you summarize the key points from that AI news in a bulleted list?",
+        "Explain how machine learning algorithms work in detail",
     ]
 
-    print("🚀 Multi-Agent Orchestrator Demo")
+    print("🚀 Multi-Agent Orchestrator Demo - Conversation Flow")
     print("=" * 60)
+    print("This demo shows how the system maintains conversation context across messages.")
 
     try:
         # Initialize orchestrator and use it as a context manager
         async with MultiAgentOrchestrator() as orchestrator:
             await orchestrator.initialize_agents()
 
-            # Process each test message
+            # Process each test message with conversation history
             for i, message in enumerate(test_messages, 1):
                 print(f"\n📝 Test {i}: {message}")
                 print("-" * 50)
 
                 try:
-                    response = await orchestrator.process_request(message)
+                    # Enable conversation history for all messages after the first
+                    include_history = i > 1
+                    response = await orchestrator.process_request(message, include_history=include_history)
                     print(response)
+
+                    if include_history:
+                        print(f"\n📊 Conversation so far: {len(orchestrator.get_conversation_history())} messages")
+
                 except Exception as e:
                     print(f"❌ Error processing message: {str(e)}")
 
                 print("-" * 50)
 
+                # Add a small delay between messages for better readability
+                if i < len(test_messages):
+                    print("⏳ Continuing conversation in 2 seconds...")
+                    await asyncio.sleep(2)
+
             print(f"\n✅ Demo completed successfully! Processed {len(test_messages)} test messages.")
+
+            # Show final conversation summary
+            print("\n📋 Final Conversation Summary:")
+            print("=" * 60)
+            summary = orchestrator.get_conversation_summary()
+            print(summary)
 
     except Exception as e:
         logger.error(f"Demo failed: {str(e)}")
@@ -76,37 +97,89 @@ async def run_demo():
 
 async def run_interactive():
     """Run the multi-agent orchestrator in interactive mode."""
-    print("🚀 Multi-Agent Orchestrator - Interactive Mode")
-    print("=" * 60)
+    print("🚀 Multi-Agent Orchestrator - Interactive Conversation Mode")
+    print("=" * 70)
     print("Type your questions and the system will route them to the appropriate agents.")
-    print("Type 'quit' or 'exit' to stop.\n")
+    print("The system maintains conversation history for context-aware responses.")
+    print("\nAvailable commands:")
+    print("  - Type your question to get an AI response")
+    print("  - 'history' - Show conversation history")
+    print("  - 'clear' - Clear conversation history")
+    print("  - 'summary' - Show conversation summary")
+    print("  - 'quit' or 'exit' - Stop the conversation")
+    print("-" * 70)
 
     try:
         async with MultiAgentOrchestrator() as orchestrator:
             await orchestrator.initialize_agents()
 
+            conversation_count = 0
+
             while True:
                 try:
-                    user_input = input("\n💬 Your question: ").strip()
+                    # Show conversation count
+                    history_len = len(orchestrator.get_conversation_history())
+                    prompt = f"\n💬 Message {conversation_count + 1}"
+                    if history_len > 0:
+                        prompt += f" (History: {history_len} messages)"
+                    prompt += ": "
 
+                    user_input = input(prompt).strip()
+
+                    # Handle commands
                     if user_input.lower() in ['quit', 'exit', 'q']:
-                        print("👋 Goodbye!")
+                        print("\n👋 Thanks for the conversation! Goodbye!")
                         break
+
+                    elif user_input.lower() == 'clear':
+                        orchestrator.clear_conversation_history()
+                        conversation_count = 0
+                        print("🧹 Conversation history cleared!")
+                        continue
+
+                    elif user_input.lower() == 'history':
+                        history = orchestrator.get_conversation_history()
+                        if not history:
+                            print("📝 No conversation history yet.")
+                        else:
+                            print(f"\n📝 Conversation History ({len(history)} messages):")
+                            print("-" * 50)
+                            for i, msg in enumerate(history, 1):
+                                timestamp = time.strftime("%H:%M:%S", time.localtime(msg.timestamp))
+                                role_icon = "👤" if msg.role == "user" else "🤖"
+                                agent_info = f" [{msg.agent_used}]" if msg.agent_used else ""
+                                print(f"{i}. [{timestamp}] {role_icon} {msg.role.title()}{agent_info}:")
+                                # Show first 100 characters for brevity
+                                content = msg.content[:200] + "..." if len(msg.content) > 200 else msg.content
+                                print(f"   {content}")
+                                print()
+                        continue
+
+                    elif user_input.lower() == 'summary':
+                        summary = orchestrator.get_conversation_summary()
+                        print(f"\n📊 {summary}")
+                        continue
 
                     if not user_input:
                         continue
 
-                    print("\n🤖 Processing your request...")
+                    conversation_count += 1
+                    print(f"\n🤖 Processing your request (Message {conversation_count})...")
                     print("-" * 50)
 
-                    response = await orchestrator.process_request(user_input)
+                    # Process with conversation history enabled
+                    response = await orchestrator.process_request(user_input, include_history=True)
                     print(response)
 
+                    # Add a separator for readability
+                    print("\n" + "─" * 70)
+
                 except KeyboardInterrupt:
-                    print("\n👋 Goodbye!")
+                    print("\n\n👋 Conversation interrupted. Goodbye!")
                     break
                 except Exception as e:
                     print(f"❌ Error processing request: {str(e)}")
+                    print("Try again or type 'quit' to exit.")
 
     except Exception as e:
         logger.error(f"Interactive mode failed: {str(e)}")

@@ -8,7 +8,9 @@ specialized agents in the multi-agent system.
 import os
 import asyncio
 import logging
+import time
 from typing import Dict, List, Optional, Union
+from dataclasses import dataclass
 
 from azure.ai.projects import AIProjectClient
 from azure.identity import DefaultAzureCredential
@@ -28,10 +30,19 @@ from agents import (
     RoutingAgent,
     RoutingDecision,
     CodeInterpreterAgent,
-    BingSearchAgent
+    BingSearchAgent,
+    DetailedAnswerAgent
 )
 
 logger = logging.getLogger('multi_agent_orchestrator.orchestrator')
+
+@dataclass
+class ConversationMessage:
+    """Represents a single message in the conversation."""
+    role: str  # "user" or "assistant"
+    content: str
+    timestamp: float
+    agent_used: Optional[str] = None
 
 class MultiAgentOrchestrator:
     """Core orchestrator for managing multiple Azure AI agents."""
@@ -46,6 +57,9 @@ class MultiAgentOrchestrator:
         for var in required_env_vars:
             if not os.environ.get(var):
                 raise ValueError(f"Environment variable {var} is required")
+
+        # Initialize conversation history
+        self.conversation_history: List[ConversationMessage] = []
 
         # Initialize Azure AI Project Client
         self.project_client = AIProjectClient(
@@ -69,7 +83,8 @@ class MultiAgentOrchestrator:
         self.agent_configs = {
             "routing_agent": RoutingAgent.get_config(),
             "code_interpreter": CodeInterpreterAgent.get_config(),
-            "bing_search": BingSearchAgent.get_config()
+            "bing_search": BingSearchAgent.get_config(),
+            "detailed_answer": DetailedAnswerAgent.get_config()
         }
 
         self.agents: Dict[str, AzureAIAgent] = {}
@@ -93,6 +108,11 @@ class MultiAgentOrchestrator:
         bing_agent = BingSearchAgent(self.project_client, self.agent_configs["bing_search"])
         await bing_agent.initialize()
         self.agents["bing_search"] = bing_agent
+
+        # Detailed answer agent
+        detailed_agent = DetailedAnswerAgent(self.project_client, self.agent_configs["detailed_answer"])
+        await detailed_agent.initialize()
+        self.agents["detailed_answer"] = detailed_agent
 
         logger.info("All agents initialized successfully")
 
@@ -125,13 +145,30 @@ class MultiAgentOrchestrator:
             # Fallback using keyword matching
             return RoutingAgent._fallback_route_message(user_message)
 
-    async def process_request(self, user_message: str) -> str:
+    async def process_request(self, user_message: str, include_history: bool = True) -> str:
         """
         Process a user request using the routing agent to determine execution plan.
+        
+        Args:
+            user_message: The user's input message
+            include_history: Whether to include conversation history in the context
         """
         try:
+            # Add user message to conversation history
+            user_msg = ConversationMessage(
+                role="user",
+                content=user_message,
+                timestamp=time.time()
+            )
+            self.conversation_history.append(user_msg)
+
+            # Build context with conversation history if requested
+            context_message = user_message
+            if include_history and len(self.conversation_history) > 1:
+                context_message = self._build_context_with_history(user_message)
+
             # Get routing decision from the routing agent
-            routing_decision = await self.route_message(user_message)
+            routing_decision = await self.route_message(context_message)
 
             # Validate agents exist
             for agent_name in routing_decision.agents_to_call:
@@ -142,17 +179,28 @@ class MultiAgentOrchestrator:
 
             # Execute based on the routing decision
             if routing_decision.collaborative or len(routing_decision.agents_to_call) > 1:
-                return await self._execute_collaborative(user_message, routing_decision)
+                response = await self._execute_collaborative(context_message, routing_decision)
             else:
                 # Single agent execution
                 agent_name = routing_decision.agents_to_call[0]
                 agent = self.agents[agent_name]
-                response = await agent.process_message(user_message)
+                agent_response = await agent.process_message(context_message)
 
-                return f"""**Routing Decision:** {routing_decision.reasoning}
+                response = f"""**Routing Decision:** {routing_decision.reasoning}
 **Agent Used:** {agent.config.name}
 
-{response}"""
+{agent_response}"""
+
+            # Add assistant response to conversation history
+            assistant_msg = ConversationMessage(
+                role="assistant",
+                content=response,
+                timestamp=time.time(),
+                agent_used=routing_decision.agents_to_call[0] if len(routing_decision.agents_to_call) == 1 else "collaborative"
+            )
+            self.conversation_history.append(assistant_msg)
+
+            return response
 
         except Exception as e:
             error_msg = f"Error processing request: {str(e)}"
@@ -231,3 +279,68 @@ class MultiAgentOrchestrator:
         """
         logger.info("Using routing agent to determine collaboration strategy")
         return await self.process_request(user_message)
+
+    def _build_context_with_history(self, current_message: str) -> str:
+        """Build a context message that includes conversation history."""
+        context_parts = ["=== CONVERSATION HISTORY ==="]
+        
+        # Include the last 10 messages (or fewer if not available) to avoid token limits
+        recent_history = self.conversation_history[-10:]
+        
+        for msg in recent_history[:-1]:  # Exclude the current message we just added
+            if msg.role == "user":
+                context_parts.append(f"User: {msg.content}")
+            else:
+                # For assistant messages, include just the core content without formatting
+                content = msg.content
+                if "**Agent Used:**" in content:
+                    # Extract just the response part, skip the routing decision
+                    lines = content.split('\n')
+                    response_lines = []
+                    skip_next = False
+                    for line in lines:
+                        if line.startswith("**") and ":**" in line:
+                            skip_next = True
+                            continue
+                        if skip_next and line.strip() == "":
+                            skip_next = False
+                            continue
+                        if not skip_next:
+                            response_lines.append(line)
+                    content = '\n'.join(response_lines).strip()
+                
+                context_parts.append(f"Assistant: {content}")
+        
+        context_parts.append("=== CURRENT REQUEST ===")
+        context_parts.append(current_message)
+        
+        return '\n'.join(context_parts)
+
+    def get_conversation_history(self) -> List[ConversationMessage]:
+        """Get the current conversation history."""
+        return self.conversation_history.copy()
+
+    def clear_conversation_history(self):
+        """Clear the conversation history."""
+        self.conversation_history.clear()
+        logger.info("Conversation history cleared")
+
+    def get_conversation_summary(self) -> str:
+        """Get a formatted summary of the conversation."""
+        if not self.conversation_history:
+            return "No conversation history available."
+        
+        summary_parts = [f"Conversation History ({len(self.conversation_history)} messages):"]
+        summary_parts.append("-" * 50)
+        
+        for i, msg in enumerate(self.conversation_history, 1):
+            timestamp = time.strftime("%H:%M:%S", time.localtime(msg.timestamp))
+            if msg.role == "user":
+                summary_parts.append(f"{i}. [{timestamp}] User: {msg.content}")
+            else:
+                agent_info = f" ({msg.agent_used})" if msg.agent_used else ""
+                # Truncate long responses for summary
+                content = msg.content[:100] + "..." if len(msg.content) > 100 else msg.content
+                summary_parts.append(f"{i}. [{timestamp}] Assistant{agent_info}: {content}")
+        
+        return '\n'.join(summary_parts)
