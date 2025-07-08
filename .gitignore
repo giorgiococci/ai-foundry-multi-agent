@@ -6,3 +6,6 @@
 /temp
 
 __pycache__
+
+# Chainlit cache
+*/.chainlit

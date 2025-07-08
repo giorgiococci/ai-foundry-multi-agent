@@ -68,6 +68,54 @@ az account show
 
 ## 🎯 Usage
 
+### 🌐 Web UI (Recommended)
+
+The easiest way to use the Multi-Agent Orchestrator is through the beautiful Chainlit web interface:
+
+```bash
+# Quick start with the UI
+python start_ui.py
+
+# Or use the batch file on Windows
+start_ui.bat
+
+# Or use PowerShell on Windows  
+.\start_ui.ps1
+
+# Or run Chainlit directly
+chainlit run app.py --host 0.0.0.0 --port 8000
+```
+
+The web interface provides:
+- **Beautiful chat interface** with agent-specific avatars
+- **Real-time conversation** with context preservation
+- **Command support** (clear, history, summary, help)
+- **Agent routing visualization** showing which agent handled each request
+- **Responsive design** that works on desktop and mobile
+
+Visit `http://localhost:8000` to access the interface.
+
+### 🐳 Docker Deployment
+
+For production deployment or easy setup:
+
+```bash
+# Using Docker Compose (recommended)
+docker-compose up -d
+
+# Or build and run manually
+docker build -t multi-agent-orchestrator .
+docker run -p 8000:8000 \
+  -e PROJECT_ENDPOINT="your-endpoint" \
+  -e MODEL_DEPLOYMENT_NAME="your-model" \
+  -e BING_CONNECTION_NAME="your-bing-connection" \
+  multi-agent-orchestrator
+```
+
+### 📱 Command Line Interface
+
+For programmatic usage or development:
+
 ### Quick Start
 
 ```bash
@@ -77,8 +125,6 @@ python src/main.py
 # Or use the simplified version
 python src/simple_orchestrator.py
 ```
-
-### Interactive Mode
 
 ### Interactive Mode
 

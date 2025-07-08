@@ -169,8 +169,16 @@ class MultiAgentOrchestrator:
 
             # Get routing decision from the routing agent
             routing_decision = await self.route_message(context_message)
+            
+            # Debug logging
+            logger.debug(f"Routing decision received: agents={routing_decision.agents_to_call}, "
+                        f"collaborative={routing_decision.collaborative}, reasoning={routing_decision.reasoning}")
 
-            # Validate agents exist
+            # Validate agents exist and at least one agent is specified
+            if not routing_decision.agents_to_call:
+                logger.error("Routing decision returned empty agents list")
+                return "Error: No agents specified for handling this request"
+                
             for agent_name in routing_decision.agents_to_call:
                 if agent_name not in self.agents:
                     return f"Error: Agent {agent_name} not available"
@@ -196,7 +204,7 @@ class MultiAgentOrchestrator:
                 role="assistant",
                 content=response,
                 timestamp=time.time(),
-                agent_used=routing_decision.agents_to_call[0] if len(routing_decision.agents_to_call) == 1 else "collaborative"
+                agent_used=routing_decision.agents_to_call[0] if routing_decision.agents_to_call else "unknown"
             )
             self.conversation_history.append(assistant_msg)
 

@@ -81,8 +81,14 @@ class RoutingDecision:
         """Create RoutingDecision from JSON string."""
         try:
             data = json.loads(json_str)
+            agents_to_call = data.get('agents_to_call', [])
+            
+            # Ensure we always have at least one agent
+            if not agents_to_call:
+                agents_to_call = ['detailed_answer']  # Default fallback agent
+                
             return cls(
-                agents_to_call=data.get('agents_to_call', []),
+                agents_to_call=agents_to_call,
                 execution_order=data.get('execution_order', 'sequential'),
                 reasoning=data.get('reasoning', ''),
                 collaborative=data.get('collaborative', False),
@@ -91,9 +97,9 @@ class RoutingDecision:
         except (json.JSONDecodeError, KeyError) as e:
             # Fallback to simple routing if JSON parsing fails
             return cls(
-                agents_to_call=['bing_search'],
+                agents_to_call=['detailed_answer'],
                 execution_order='sequential',
-                reasoning=f'JSON parsing failed: {e}. Defaulting to search agent.',
+                reasoning=f'JSON parsing failed: {e}. Defaulting to detailed answer agent.',
                 collaborative=False,
                 is_dynamic=False
             )
