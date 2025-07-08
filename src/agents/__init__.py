@@ -12,6 +12,7 @@ from .base_agent import AzureAIAgent, AgentConfig
 from .routing_agent import RoutingAgent, RoutingDecision
 from .code_interpreter_agent import CodeInterpreterAgent
 from .bing_search_agent import BingSearchAgent
+from .detailed_answer_agent import DetailedAnswerAgent
 
 __all__ = [
     'AzureAIAgent',
@@ -19,5 +20,6 @@ __all__ = [
     'RoutingAgent',
     'RoutingDecision',
     'CodeInterpreterAgent',
-    'BingSearchAgent'
+    'BingSearchAgent',
+    'DetailedAnswerAgent'
 ]

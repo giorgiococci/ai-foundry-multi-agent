@@ -84,7 +84,19 @@ class AzureAIAgent:
                     # Get the text content from the message
                     if hasattr(msg, 'content') and msg.content:
                         if isinstance(msg.content, list) and len(msg.content) > 0:
-                            return msg.content[0].text.value if hasattr(msg.content[0], 'text') else str(msg.content[0])
+                            # Handle multiple content items (text + images)
+                            text_content = []
+                            for content_item in msg.content:
+                                if hasattr(content_item, 'text') and content_item.text:
+                                    text_content.append(content_item.text.value)
+                                elif hasattr(content_item, 'type') and content_item.type == 'text':
+                                    text_content.append(str(content_item))
+                            
+                            if text_content:
+                                return '\n'.join(text_content)
+                            else:
+                                # Fallback to first content item as string
+                                return str(msg.content[0])
                         else:
                             return str(msg.content)
             
