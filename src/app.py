@@ -15,6 +15,11 @@ import chainlit as cl
 from orchestrator import MultiAgentOrchestrator, ConversationMessage
 
 # Configure logging
+logging.getLogger('azure.core.pipeline.policies.http_logging_policy').setLevel(logging.WARNING)
+logging.getLogger('azure.ai.projects').setLevel(logging.WARNING)
+logging.getLogger('azure.ai.agents').setLevel(logging.WARNING)
+logging.getLogger('azure.identity').setLevel(logging.WARNING)
+logging.getLogger('urllib3').setLevel(logging.WARNING)
 logger = logging.getLogger('multi_agent_orchestrator.ui')
 
 # Custom avatars for different agent types (URLs only in Chainlit 2.x)
