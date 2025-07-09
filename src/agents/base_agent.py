@@ -5,7 +5,7 @@ Base agent classes and configurations for the Multi-Agent Orchestrator system.
 import os
 import asyncio
 import logging
-from typing import Dict, List, Optional, Union
+from typing import Dict, List, Optional, Union, AsyncGenerator
 from dataclasses import dataclass
 
 from azure.ai.projects import AIProjectClient
@@ -105,3 +105,76 @@ class AzureAIAgent:
         except Exception as e:
             logger.error(f"Error processing message in {self.config.name}: {str(e)}")
             return f"Error processing request in {self.config.name}: {str(e)}"
+        
+    async def process_message_stream(self, message: str) -> AsyncGenerator[str, None]:
+        """Process a message through the agent and yield streaming response chunks."""
+        if not self.agent or not self.thread:
+            raise RuntimeError(f"Agent {self.config.name} not initialized")
+        
+        try:
+            # Add user message to thread
+            user_message = self.project_client.agents.messages.create(
+                thread_id=self.thread.id,
+                role="user",
+                content=message
+            )
+            logger.debug(f"Created message for {self.config.name}, ID: {user_message['id']}")
+            
+            # Create agent run with streaming
+            run = self.project_client.agents.runs.create(
+                thread_id=self.thread.id, 
+                agent_id=self.agent.id
+            )
+            
+            # Poll for run completion and stream messages as they arrive
+            previous_messages = set()
+            accumulated_response = ""
+            
+            while True:
+                # Check run status
+                run_status = self.project_client.agents.runs.retrieve(
+                    thread_id=self.thread.id,
+                    run_id=run.id
+                )
+                
+                # Get current messages
+                messages = self.project_client.agents.messages.list(thread_id=self.thread.id)
+                
+                # Process new assistant messages
+                for msg in messages:
+                    if (msg.role == "assistant" and 
+                        hasattr(msg, 'id') and 
+                        msg.id not in previous_messages):
+                        
+                        previous_messages.add(msg.id)
+                        
+                        # Extract text content
+                        if hasattr(msg, 'content') and msg.content:
+                            if isinstance(msg.content, list) and len(msg.content) > 0:
+                                for content_item in msg.content:
+                                    if hasattr(content_item, 'text') and content_item.text:
+                                        new_text = content_item.text.value
+                                        if new_text and new_text not in accumulated_response:
+                                            # Stream new content
+                                            chunk = new_text[len(accumulated_response):]
+                                            if chunk:
+                                                accumulated_response += chunk
+                                                yield chunk
+                
+                # Check if run is complete
+                if run_status.status in ["completed", "failed", "cancelled", "expired"]:
+                    break
+                
+                # Small delay before next poll
+                await asyncio.sleep(0.5)
+            
+            # If run failed, yield error message
+            if run_status.status == "failed":
+                error_msg = f"Agent {self.config.name} failed to process the request: {run_status.last_error}"
+                logger.error(error_msg)
+                yield error_msg
+                
+        except Exception as e:
+            error_msg = f"Error in streaming response from {self.config.name}: {str(e)}"
+            logger.error(error_msg)
+            yield error_msg

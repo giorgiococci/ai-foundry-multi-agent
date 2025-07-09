@@ -12,7 +12,8 @@ from typing import Optional, List, Dict
 
 import chainlit as cl
 
-from orchestrator import MultiAgentOrchestrator, ConversationMessage
+from orchestrator import MultiAgentOrchestrator
+from conversation_manager import ConversationMessage
 
 # Configure logging
 logging.getLogger('azure.core.pipeline.policies.http_logging_policy').setLevel(logging.WARNING)
@@ -54,7 +55,7 @@ async def start():
         
         # Success message with agent info
         agent_list = "\n".join([f"• **{name.replace('_', ' ').title()}** - Ready" 
-                               for name in orchestrator.agents.keys()])
+                               for name in orchestrator.agent_manager.agents.keys()])
         
         welcome_msg = f"""
 # 🎉 Welcome to Multi-Agent Orchestrator!
